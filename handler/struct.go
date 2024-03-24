@@ -3,7 +3,6 @@ package handler
 import (
 	"context"
 	"io"
-	"net"
 	"strings"
 )
 
@@ -13,7 +12,7 @@ type Reply interface {
 	ToBytes() []byte
 }
 
-type MultiBulkReply interface {
+type MultiReply interface {
 	Reply
 	Args() [][]byte
 }
@@ -31,7 +30,7 @@ func (d *Droplet) Terminated() bool {
 }
 
 type DB interface {
-	Exec(ctx context.Context, conn net.Conn, cmdLine [][]byte) Reply
+	Do(ctx context.Context, cmdLine [][]byte) Reply
 	Close()
 }
 

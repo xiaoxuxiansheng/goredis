@@ -43,7 +43,7 @@ func (p *Parser) parse(rawReader io.Reader, ch chan<- *handler.Droplet) {
 		firstLine, err := reader.ReadBytes('\n')
 		if err != nil {
 			ch <- &handler.Droplet{
-				Reply: NewErrReply(err.Error()),
+				Reply: handler.NewErrReply(err.Error()),
 				Err:   err,
 			}
 			return
@@ -69,7 +69,7 @@ func (p *Parser) parse(rawReader io.Reader, ch chan<- *handler.Droplet) {
 func (p *Parser) parseSimpleString(header []byte, reader *bufio.Reader) *handler.Droplet {
 	content := header[1:]
 	return &handler.Droplet{
-		Reply: NewSimpleStringReply(string(content)),
+		Reply: handler.NewSimpleStringReply(string(content)),
 	}
 }
 
@@ -80,19 +80,19 @@ func (p *Parser) parseInt(header []byte, reader *bufio.Reader) *handler.Droplet 
 	if err != nil {
 		return &handler.Droplet{
 			Err:   err,
-			Reply: NewErrReply(err.Error()),
+			Reply: handler.NewErrReply(err.Error()),
 		}
 	}
 
 	return &handler.Droplet{
-		Reply: NewIntReply(i),
+		Reply: handler.NewIntReply(i),
 	}
 }
 
 // 解析错误类型
 func (p *Parser) parseError(header []byte, reader *bufio.Reader) *handler.Droplet {
 	return &handler.Droplet{
-		Reply: NewErrReply(string(header[1:])),
+		Reply: handler.NewErrReply(string(header[1:])),
 	}
 }
 
@@ -102,12 +102,12 @@ func (p *Parser) parseBulk(header []byte, reader *bufio.Reader) *handler.Droplet
 	body, err := p.parseBulkBody(header, reader)
 	if err != nil {
 		return &handler.Droplet{
-			Reply: NewErrReply(err.Error()),
+			Reply: handler.NewErrReply(err.Error()),
 			Err:   err,
 		}
 	}
 	return &handler.Droplet{
-		Reply: NewBulkReply(body),
+		Reply: handler.NewBulkReply(body),
 	}
 }
 
@@ -134,7 +134,7 @@ func (p *Parser) parseMultiBulk(header []byte, reader *bufio.Reader) (droplet *h
 	defer func() {
 		if _err != nil {
 			droplet = &handler.Droplet{
-				Reply: NewErrReply(_err.Error()),
+				Reply: handler.NewErrReply(_err.Error()),
 				Err:   _err,
 			}
 		}
@@ -149,7 +149,7 @@ func (p *Parser) parseMultiBulk(header []byte, reader *bufio.Reader) (droplet *h
 
 	if length <= 0 {
 		return &handler.Droplet{
-			Reply: NewEmptyMultiBulkReply(),
+			Reply: handler.NewEmptyMultiBulkReply(),
 		}
 	}
 
@@ -179,6 +179,6 @@ func (p *Parser) parseMultiBulk(header []byte, reader *bufio.Reader) (droplet *h
 	}
 
 	return &handler.Droplet{
-		Reply: NewMultiBulkReply(lines),
+		Reply: handler.NewMultiBulkReply(lines),
 	}
 }

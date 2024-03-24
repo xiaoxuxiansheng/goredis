@@ -77,13 +77,13 @@ func (h *Handler) handle(ctx context.Context, conn net.Conn, droplet *Droplet) e
 	}
 
 	// 请求参数必须为 multiBulkReply 类型
-	multiBulkReply, ok := droplet.Reply.(MultiBulkReply)
+	multiReply, ok := droplet.Reply.(MultiReply)
 	if !ok {
 		h.logger.Errorf("[handler]conn invalid request: %s", droplet.Reply.ToBytes())
 		return nil
 	}
 
-	if reply := h.db.Exec(ctx, conn, multiBulkReply.Args()); reply != nil {
+	if reply := h.db.Do(ctx, multiReply.Args()); reply != nil {
 		_, _ = conn.Write(reply.ToBytes())
 		return nil
 	}
