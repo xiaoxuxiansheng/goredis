@@ -1,0 +1,5 @@
+package goredis
+
+func main() {
+
+}
