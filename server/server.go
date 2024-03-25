@@ -9,7 +9,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/xiaoxuxiansheng/goredis"
 	"github.com/xiaoxuxiansheng/goredis/log"
 )
 
@@ -27,7 +26,7 @@ type Server struct {
 	logger  log.Logger
 }
 
-func NewServer(handler Handler, logger log.Logger) goredis.Server {
+func NewServer(handler Handler, logger log.Logger) *Server {
 	return &Server{
 		handler: handler,
 		logger:  logger,

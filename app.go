@@ -1,14 +1,13 @@
 package goredis
 
-type Server interface {
-	ListenAndServe(address string) error
-}
+import "github.com/xiaoxuxiansheng/goredis/server"
+
 type Application struct {
-	server Server
+	server *server.Server
 	conf   *Config
 }
 
-func NewApplication(server Server, conf *Config) *Application {
+func NewApplication(server *server.Server, conf *Config) *Application {
 	return &Application{
 		server: server,
 		conf:   conf,
