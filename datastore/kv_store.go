@@ -275,15 +275,56 @@ func (k *KVStore) LRange(args [][]byte) handler.Reply {
 
 // set
 func (k *KVStore) SAdd(args [][]byte) handler.Reply {
-	return nil
+	key := string(args[0])
+	set, err := k.getAsSet(key)
+	if err != nil {
+		return handler.NewErrReply(err.Error())
+	}
+
+	if set == nil {
+		set = newSetEntity()
+		k.putAsSet(key, set)
+	}
+
+	var added int64
+	for _, arg := range args[1:] {
+		added += set.Add(string(arg))
+	}
+
+	return handler.NewIntReply(added)
 }
 
 func (k *KVStore) SIsMember(args [][]byte) handler.Reply {
-	return nil
+	key := string(args[0])
+	set, err := k.getAsSet(key)
+	if err != nil {
+		return handler.NewErrReply(err.Error())
+	}
+
+	if set == nil {
+		return handler.NewIntReply(0)
+	}
+
+	return handler.NewIntReply(set.Exist(string(args[1])))
 }
 
 func (k *KVStore) SRem(args [][]byte) handler.Reply {
-	return nil
+	key := string(args[0])
+	set, err := k.getAsSet(key)
+	if err != nil {
+		return handler.NewErrReply(err.Error())
+	}
+
+	if set == nil {
+		return handler.NewIntReply(0)
+	}
+
+	var remed int64
+	for _, arg := range args[1:] {
+		remed += set.Rem(string(arg))
+	}
+
+	return handler.NewIntReply(remed)
 }
 
 // hash
