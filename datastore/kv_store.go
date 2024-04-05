@@ -329,15 +329,64 @@ func (k *KVStore) SRem(args [][]byte) handler.Reply {
 
 // hash
 func (k *KVStore) HSet(args [][]byte) handler.Reply {
-	return nil
+	if len(args)&1 != 1 {
+		return handler.NewSyntaxErrReply()
+	}
+
+	key := string(args[0])
+	hmap, err := k.getAsHashMap(key)
+	if err != nil {
+		return handler.NewErrReply(err.Error())
+	}
+
+	if hmap == nil {
+		hmap = newHashMapEntity()
+		k.putAsHashMap(key, hmap)
+	}
+
+	for i := 0; i < len(args)-1; i += 2 {
+		hkey := string(args[i+1])
+		hvalue := args[i+2]
+		hmap.Put(hkey, hvalue)
+	}
+
+	return handler.NewIntReply(int64((len(args) - 1) >> 1))
 }
 
 func (k *KVStore) HGet(args [][]byte) handler.Reply {
-	return nil
+	key := string(args[0])
+	hmap, err := k.getAsHashMap(key)
+	if err != nil {
+		return handler.NewErrReply(err.Error())
+	}
+
+	if hmap == nil {
+		return handler.NewNillReply()
+	}
+
+	if v := hmap.Get(string(args[1])); v != nil {
+		return handler.NewBulkReply(v)
+	}
+
+	return handler.NewNillReply()
 }
 
 func (k *KVStore) HDel(args [][]byte) handler.Reply {
-	return nil
+	key := string(args[0])
+	hmap, err := k.getAsHashMap(key)
+	if err != nil {
+		return handler.NewErrReply(err.Error())
+	}
+
+	if hmap == nil {
+		return handler.NewIntReply(0)
+	}
+
+	var remed int64
+	for _, arg := range args[1:] {
+		remed += hmap.Del(string(arg))
+	}
+	return handler.NewIntReply(remed)
 }
 
 // sorted set
