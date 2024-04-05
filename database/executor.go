@@ -25,6 +25,8 @@ func NewDBExecutor(dataStore DataStore) *DBExecutor {
 		cancel:    cancel,
 	}
 	e.cmdHandlers = map[CmdType]CmdHandler{
+		CmdTypeExpire: d.dataStore.Expire,
+
 		// string
 		CmdTypeGet:  e.dataStore.Get,
 		CmdTypeSet:  e.dataStore.Set,

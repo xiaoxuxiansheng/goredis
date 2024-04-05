@@ -8,6 +8,20 @@ import (
 // CRLF 是 redis 统一的行分隔符协议
 const CRLF = "\r\n"
 
+type OKReply struct{}
+
+func NewOKReply() *OKReply {
+	return theOkReply
+}
+
+var okBytes = []byte("+OK\r\n")
+
+func (o *OKReply) ToBytes() []byte {
+	return okBytes
+}
+
+var theOkReply = new(OKReply)
+
 // 简单字符串类型. 协议为 【+】【string】【CRLF】
 type SimpleStringReply struct {
 	Str string
@@ -36,6 +50,43 @@ func NewIntReply(code int64) *IntReply {
 
 func (i *IntReply) ToBytes() []byte {
 	return []byte(":" + strconv.FormatInt(i.Code, 10) + CRLF)
+}
+
+// 参数语法错误
+type SyntaxErrReply struct{}
+
+var syntaxErrBytes = []byte("-Err syntax error\r\n")
+var theSyntaxErrReply = &SyntaxErrReply{}
+
+func NewSyntaxErrReply() *SyntaxErrReply {
+	return theSyntaxErrReply
+}
+
+func (r *SyntaxErrReply) ToBytes() []byte {
+	return syntaxErrBytes
+}
+
+func (r *SyntaxErrReply) Error() string {
+	return "Err syntax error"
+}
+
+// 数据类型错误
+type WrongTypeErrReply struct{}
+
+var theWrongTypeErrReply = &WrongTypeErrReply{}
+
+var wrongTypeErrBytes = []byte("-WRONGTYPE Operation against a key holding the wrong kind of value\r\n")
+
+func NewWrongTypeErrReply() *WrongTypeErrReply {
+	return theWrongTypeErrReply
+}
+
+func (r *WrongTypeErrReply) ToBytes() []byte {
+	return wrongTypeErrBytes
+}
+
+func (r *WrongTypeErrReply) Error() string {
+	return "WRONGTYPE Operation against a key holding the wrong kind of value"
 }
 
 // 错误类型. 协议为 【-】【err】【CRLF】

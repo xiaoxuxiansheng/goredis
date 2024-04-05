@@ -11,6 +11,8 @@ type Executor interface {
 type CmdType string
 
 const (
+	CmdTypeExpire CmdType = "expire"
+
 	// string
 	CmdTypeGet  CmdType = "get"
 	CmdTypeSet  CmdType = "set"
@@ -38,6 +40,8 @@ const (
 )
 
 type DataStore interface {
+	Expire(args [][]byte) handler.Reply
+
 	// string
 	Get(args [][]byte) handler.Reply
 	MGet(args [][]byte) handler.Reply

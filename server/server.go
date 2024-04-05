@@ -75,12 +75,11 @@ func (s *Server) listenAndServe(listener net.Listener, closec chan struct{}) {
 	go func() {
 		select {
 		case <-closec:
-			cancel()
 			s.logger.Errorf("[server]server closing...")
 		case err := <-errc:
-			cancel()
 			s.logger.Errorf("[server]server err: %s", err.Error())
 		}
+		cancel()
 		s.logger.Warnf("[server]server closeing...")
 		s.handler.Close()
 		if err := listener.Close(); err != nil {
