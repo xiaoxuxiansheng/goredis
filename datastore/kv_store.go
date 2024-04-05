@@ -125,11 +125,152 @@ func (k *KVStore) MSet(args [][]byte) handler.Reply {
 
 // list
 func (k *KVStore) LPush(args [][]byte) handler.Reply {
-	return nil
+	key := string(args[0])
+	list, err := k.getAsList(key)
+	if err != nil {
+		return handler.NewErrReply(err.Error())
+	}
+
+	if list == nil {
+		list = newListEntity()
+		k.putAsList(key, list)
+	}
+
+	for i := 1; i < len(args); i++ {
+		list.LPush(args[i])
+	}
+
+	return handler.NewIntReply(list.Len())
 }
 
 func (k *KVStore) LPop(args [][]byte) handler.Reply {
-	return nil
+	key := string(args[0])
+	var cnt int64
+	if len(args) > 1 {
+		rawCnt, err := strconv.ParseInt(string(args[1]), 10, 64)
+		if err != nil {
+			return handler.NewSyntaxErrReply()
+		}
+		if rawCnt < 1 {
+			return handler.NewSyntaxErrReply()
+		}
+		cnt = rawCnt
+	}
+
+	list, err := k.getAsList(key)
+	if err != nil {
+		return handler.NewErrReply(err.Error())
+	}
+
+	if list == nil {
+		return handler.NewNillReply()
+	}
+
+	if cnt == 0 {
+		cnt = 1
+	}
+
+	poped := list.LPop(cnt)
+	if poped == nil {
+		return handler.NewNillReply()
+	}
+
+	if len(poped) == 1 {
+		return handler.NewBulkReply(poped[0])
+	}
+
+	return handler.NewMultiBulkReply(poped)
+}
+
+func (k *KVStore) RPush(args [][]byte) handler.Reply {
+	key := string(args[0])
+	list, err := k.getAsList(key)
+	if err != nil {
+		return handler.NewErrReply(err.Error())
+	}
+
+	if list == nil {
+		list = newListEntity(args[1:]...)
+		k.putAsList(key, list)
+		return handler.NewIntReply(list.Len())
+	}
+
+	for i := 1; i < len(args); i++ {
+		list.RPush(args[i])
+	}
+
+	return handler.NewIntReply(list.Len())
+}
+
+func (k *KVStore) RPop(args [][]byte) handler.Reply {
+	key := string(args[0])
+	var cnt int64
+	if len(args) > 1 {
+		rawCnt, err := strconv.ParseInt(string(args[1]), 10, 64)
+		if err != nil {
+			return handler.NewSyntaxErrReply()
+		}
+		if rawCnt < 1 {
+			return handler.NewSyntaxErrReply()
+		}
+		cnt = rawCnt
+	}
+
+	list, err := k.getAsList(key)
+	if err != nil {
+		return handler.NewErrReply(err.Error())
+	}
+
+	if list == nil {
+		return handler.NewNillReply()
+	}
+
+	if cnt == 0 {
+		cnt = 1
+	}
+
+	poped := list.RPop(cnt)
+	if poped == nil {
+		return handler.NewNillReply()
+	}
+
+	if len(poped) == 1 {
+		return handler.NewBulkReply(poped[0])
+	}
+
+	return handler.NewMultiBulkReply(poped)
+}
+
+func (k *KVStore) LRange(args [][]byte) handler.Reply {
+	if len(args) != 3 {
+		return handler.NewSyntaxErrReply()
+	}
+
+	key := string(args[0])
+	start, err := strconv.ParseInt(string(args[1]), 10, 64)
+	if err != nil {
+		return handler.NewSyntaxErrReply()
+	}
+
+	stop, err := strconv.ParseInt(string(args[1]), 10, 64)
+	if err != nil {
+		return handler.NewSyntaxErrReply()
+	}
+
+	list, err := k.getAsList(key)
+	if err != nil {
+		return handler.NewErrReply(err.Error())
+	}
+
+	if list == nil {
+		return handler.NewNillReply()
+	}
+
+	if got := list.Range(start, stop); got != nil {
+		return handler.NewMultiBulkReply(got)
+	}
+
+	return handler.NewNillReply()
 }
 
 // set

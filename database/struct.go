@@ -20,8 +20,11 @@ const (
 	CmdTypeMSet CmdType = "mset"
 
 	// list
-	CmdTypeLPush CmdType = "lpush"
-	CmdTypeLPop  CmdType = "lpop"
+	CmdTypeLPush  CmdType = "lpush"
+	CmdTypeLPop   CmdType = "lpop"
+	CmdTypeRPush  CmdType = "rpush"
+	CmdTypeRPop   CmdType = "rpop"
+	CmdTypeLRange CmdType = "lrange"
 
 	// hash
 	CmdTypeHSet CmdType = "hset"
@@ -51,6 +54,9 @@ type DataStore interface {
 	// list
 	LPush(args [][]byte) handler.Reply
 	LPop(args [][]byte) handler.Reply
+	RPush(args [][]byte) handler.Reply
+	RPop(args [][]byte) handler.Reply
+	LRange(args [][]byte) handler.Reply
 
 	// set
 	SAdd(args [][]byte) handler.Reply
