@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/xiaoxuxiansheng/goredis/handler"
 )
@@ -51,9 +52,9 @@ func NewDBExecutor(dataStore DataStore) *DBExecutor {
 		CmdTypeHDel: e.dataStore.HDel,
 
 		// sorted set
-		CmdTypeZAdd:   e.dataStore.ZAdd,
-		CmdTypeZRange: e.dataStore.ZRange,
-		CmdTypeZRem:   e.dataStore.ZRem,
+		CmdTypeZAdd:          e.dataStore.ZAdd,
+		CmdTypeZRangeByScore: e.dataStore.ZRangeByScore,
+		CmdTypeZRem:          e.dataStore.ZRem,
 	}
 
 	go e.run()
@@ -79,7 +80,7 @@ func (e *DBExecutor) run() {
 		case <-e.ctx.Done():
 			return
 		case cmd := <-e.ch:
-			cmdFunc, ok := e.cmdHandlers[cmd.cmd]
+			cmdFunc, ok := e.cmdHandlers[CmdType(strings.ToLower(cmd.cmd.String()))]
 			if !ok {
 				cmd.receiver <- handler.NewErrReply(fmt.Sprintf("unknown command '%s'", cmd.cmd))
 				continue

@@ -391,13 +391,95 @@ func (k *KVStore) HDel(args [][]byte) handler.Reply {
 
 // sorted set
 func (k *KVStore) ZAdd(args [][]byte) handler.Reply {
-	return nil
+	if len(args)&1 != 1 {
+		return handler.NewSyntaxErrReply()
+	}
+
+	key := string(args[0])
+	var (
+		scores  = make([]int64, 0, (len(args)-1)>>1)
+		members = make([]string, 0, (len(args)-1)>>1)
+	)
+
+	for i := 0; i < len(args)-1; i += 2 {
+		score, err := strconv.ParseInt(string(args[i+1]), 10, 64)
+		if err != nil {
+			return handler.NewSyntaxErrReply()
+		}
+
+		scores = append(scores, score)
+		members = append(members, string(args[i+2]))
+	}
+
+	zset, err := k.getAsSortedSet(key)
+	if err != nil {
+		return handler.NewErrReply(err.Error())
+	}
+
+	if zset == nil {
+		zset = newSkiplist()
+		k.putAsSortedSet(key, zset)
+	}
+
+	for i := 0; i < len(scores); i++ {
+		zset.Add(scores[i], members[i])
+	}
+
+	return handler.NewIntReply(int64(len(scores)))
 }
 
-func (k *KVStore) ZRange(args [][]byte) handler.Reply {
-	return nil
+func (k *KVStore) ZRangeByScore(args [][]byte) handler.Reply {
+	if len(args) < 3 {
+		return handler.NewSyntaxErrReply()
+	}
+
+	key := string(args[0])
+	score1, err := strconv.ParseInt(string(args[1]), 10, 65)
+	if err != nil {
+		return handler.NewSyntaxErrReply()
+	}
+	score2, err := strconv.ParseInt(string(args[2]), 10, 65)
+	if err != nil {
+		return handler.NewSyntaxErrReply()
+	}
+
+	zset, err := k.getAsSortedSet(key)
+	if err != nil {
+		return handler.NewErrReply(err.Error())
+	}
+
+	if zset == nil {
+		return handler.NewNillReply()
+	}
+
+	rawRes := zset.Range(score1, score2)
+	if len(rawRes) == 0 {
+		return handler.NewNillReply()
+	}
+
+	res := make([][]byte, 0, len(rawRes))
+	for _, item := range rawRes {
+		res = append(res, []byte(item))
+	}
+
+	return handler.NewMultiBulkReply(res)
 }
 
 func (k *KVStore) ZRem(args [][]byte) handler.Reply {
-	return nil
+	key := string(args[0])
+	zset, err := k.getAsSortedSet(key)
+	if err != nil {
+		return handler.NewErrReply(err.Error())
+	}
+
+	if zset == nil {
+		return handler.NewIntReply(0)
+	}
+
+	var remed int64
+	for _, arg := range args {
+		remed += zset.Rem(string(arg))
+	}
+
+	return handler.NewIntReply(remed)
 }
