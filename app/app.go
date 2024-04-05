@@ -1,4 +1,4 @@
-package goredis
+package app
 
 import "github.com/xiaoxuxiansheng/goredis/server"
 

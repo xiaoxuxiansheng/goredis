@@ -14,13 +14,14 @@ type KVStore struct {
 	data      map[string]interface{}
 	expiredAt map[string]time.Time
 
-	expireTimeWheel *skiplist
+	expireTimeWheel SortedSet
 }
 
 func NewKVStore() database.DataStore {
 	return &KVStore{
-		data:      make(map[string]interface{}),
-		expiredAt: make(map[string]time.Time),
+		data:            make(map[string]interface{}),
+		expiredAt:       make(map[string]time.Time),
+		expireTimeWheel: newSkiplist(),
 	}
 }
 
@@ -45,6 +46,9 @@ func (k *KVStore) Get(args [][]byte) handler.Reply {
 	if err != nil {
 		return handler.NewErrReply(err.Error())
 	}
+	if v == nil {
+		return handler.NewNillReply()
+	}
 	return handler.NewBulkReply(v.Bytes())
 }
 
@@ -54,6 +58,10 @@ func (k *KVStore) MGet(args [][]byte) handler.Reply {
 		v, err := k.getAsString(string(arg))
 		if err != nil {
 			return handler.NewErrReply(err.Error())
+		}
+		if v == nil {
+			res = append(res, []byte("(nil)"))
+			continue
 		}
 		res = append(res, v.Bytes())
 	}

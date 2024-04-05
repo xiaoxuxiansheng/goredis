@@ -115,7 +115,7 @@ func (s *skiplist) Range(score1, score2 int64) []string {
 	}
 
 	// 来到了 level0 层，move.nexts[i] 如果存在，就是首个 >= score1 的元素
-	if move.nexts[0] == nil {
+	if len(move.nexts) == 0 || move.nexts[0] == nil {
 		return nil
 	}
 

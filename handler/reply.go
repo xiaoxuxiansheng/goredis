@@ -141,19 +141,23 @@ func (b *BulkReply) ToBytes() []byte {
 
 // 数组类型. 协议固定为 【*】【arr.length】【CRLF】+ arr.length * (【$】【length】【CRLF】【content】【CRLF】)
 type MultiBulkReply struct {
-	Args [][]byte
+	args [][]byte
 }
 
 func NewMultiBulkReply(args [][]byte) *MultiBulkReply {
 	return &MultiBulkReply{
-		Args: args,
+		args: args,
 	}
+}
+
+func (m *MultiBulkReply) Args() [][]byte {
+	return m.args
 }
 
 func (m *MultiBulkReply) ToBytes() []byte {
 	var strBuf strings.Builder
-	strBuf.WriteString("*" + strconv.Itoa(len(m.Args)) + CRLF)
-	for _, arg := range m.Args {
+	strBuf.WriteString("*" + strconv.Itoa(len(m.args)) + CRLF)
+	for _, arg := range m.args {
 		if arg == nil {
 			strBuf.WriteString(string(nillBulkBytes))
 			continue

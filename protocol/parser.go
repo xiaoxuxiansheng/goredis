@@ -125,7 +125,7 @@ func (p *Parser) parseBulkBody(header []byte, reader *bufio.Reader) ([]byte, err
 	if _, err = io.ReadFull(reader, body); err != nil {
 		return nil, err
 	}
-	return body, nil
+	return body[:len(body)-2], nil
 }
 
 // 解析
