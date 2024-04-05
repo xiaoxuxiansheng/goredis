@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/xiaoxuxiansheng/goredis/handler"
 )
@@ -15,6 +16,8 @@ type DBExecutor struct {
 
 	cmdHandlers map[CmdType]CmdHandler
 	dataStore   DataStore
+
+	gcTicker *time.Ticker
 }
 
 func NewDBExecutor(dataStore DataStore) *DBExecutor {
@@ -24,6 +27,7 @@ func NewDBExecutor(dataStore DataStore) *DBExecutor {
 		ch:        make(chan *Command),
 		ctx:       ctx,
 		cancel:    cancel,
+		gcTicker:  time.NewTicker(time.Minute),
 	}
 	e.cmdHandlers = map[CmdType]CmdHandler{
 		CmdTypeExpire: e.dataStore.Expire,
@@ -79,12 +83,19 @@ func (e *DBExecutor) run() {
 		select {
 		case <-e.ctx.Done():
 			return
+
+		// 每隔 1 分钟批量一次过期的 key
+		case <-e.gcTicker.C:
+			e.dataStore.GC()
+
 		case cmd := <-e.ch:
 			cmdFunc, ok := e.cmdHandlers[CmdType(strings.ToLower(cmd.cmd.String()))]
 			if !ok {
 				cmd.receiver <- handler.NewErrReply(fmt.Sprintf("unknown command '%s'", cmd.cmd))
 				continue
 			}
+
+			e.dataStore.ExpirePreprocess(string(cmd.args[0])) // 懒加载机制实现过期 key 删除
 			cmd.receiver <- cmdFunc(cmd.args)
 		}
 	}

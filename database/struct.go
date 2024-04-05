@@ -47,6 +47,9 @@ const (
 )
 
 type DataStore interface {
+	ExpirePreprocess(key string)
+	GC()
+
 	Expire(args [][]byte) handler.Reply
 
 	// string

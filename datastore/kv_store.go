@@ -15,6 +15,8 @@ type KVStore struct {
 	mu        sync.Mutex // 操作数据是单线程模型. 这把锁是为了和 expire 回收线程隔离
 	data      map[string]interface{}
 	expiredAt map[string]time.Time
+
+	expireTimeWheel *skiplist
 }
 
 func NewKVStore() database.DataStore {
