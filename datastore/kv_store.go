@@ -53,7 +53,7 @@ func (k *KVStore) Get(args [][]byte) handler.Reply {
 }
 
 func (k *KVStore) MGet(args [][]byte) handler.Reply {
-	res := make([][]byte, len(args))
+	res := make([][]byte, 0, len(args))
 	for _, arg := range args {
 		v, err := k.getAsString(string(arg))
 		if err != nil {
@@ -260,7 +260,7 @@ func (k *KVStore) LRange(args [][]byte) handler.Reply {
 		return handler.NewSyntaxErrReply()
 	}
 
-	stop, err := strconv.ParseInt(string(args[1]), 10, 64)
+	stop, err := strconv.ParseInt(string(args[2]), 10, 64)
 	if err != nil {
 		return handler.NewSyntaxErrReply()
 	}
@@ -442,11 +442,11 @@ func (k *KVStore) ZRangeByScore(args [][]byte) handler.Reply {
 	}
 
 	key := string(args[0])
-	score1, err := strconv.ParseInt(string(args[1]), 10, 65)
+	score1, err := strconv.ParseInt(string(args[1]), 10, 64)
 	if err != nil {
 		return handler.NewSyntaxErrReply()
 	}
-	score2, err := strconv.ParseInt(string(args[2]), 10, 65)
+	score2, err := strconv.ParseInt(string(args[2]), 10, 64)
 	if err != nil {
 		return handler.NewSyntaxErrReply()
 	}

@@ -164,7 +164,7 @@ func (m *MultiBulkReply) ToBytes() []byte {
 		}
 		strBuf.WriteString("$" + strconv.Itoa(len(arg)) + CRLF + string(arg) + CRLF)
 	}
-	return nil
+	return []byte(strBuf.String())
 }
 
 var emptyMultiBulkBytes = []byte("*0\r\n")
