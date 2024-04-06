@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"io"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -16,19 +17,29 @@ type Handler struct {
 	conns  map[net.Conn]struct{}
 	closed atomic.Bool
 
-	db     DB
-	parser Parser
-
-	logger log.Logger
+	db        DB
+	parser    Parser
+	persister Persister
+	logger    log.Logger
 }
 
-func NewHandler(db DB, parser Parser, logger log.Logger) server.Handler {
-	return &Handler{
-		conns:  make(map[net.Conn]struct{}),
-		logger: logger,
-		db:     db,
-		parser: parser,
+func NewHandler(db DB, persister Persister, parser Parser, logger log.Logger) (server.Handler, error) {
+	h := Handler{
+		conns:     make(map[net.Conn]struct{}),
+		persister: persister,
+		logger:    logger,
+		db:        db,
+		parser:    parser,
 	}
+
+	// 加载持久化文件，还原内容
+	reloader, err := persister.Reloader()
+	if err != nil {
+		return nil, err
+	}
+	defer reloader.Close()
+	h.handle(context.Background(), newFakeReaderWriter(reloader))
+	return &h, nil
 }
 
 func (h *Handler) Handle(ctx context.Context, conn net.Conn) {
@@ -43,6 +54,10 @@ func (h *Handler) Handle(ctx context.Context, conn net.Conn) {
 	h.conns[conn] = struct{}{}
 	h.mu.Unlock()
 
+	h.handle(ctx, conn)
+}
+
+func (h *Handler) handle(ctx context.Context, conn io.ReadWriter) {
 	// 持续处理
 	stream := h.parser.ParseStream(conn)
 	for {
@@ -52,7 +67,7 @@ func (h *Handler) Handle(ctx context.Context, conn net.Conn) {
 			return
 
 		case droplet := <-stream:
-			if err := h.handle(ctx, conn, droplet); err != nil {
+			if err := h.handleDroplet(ctx, conn, droplet); err != nil {
 				h.logger.Errorf("[handler]conn terminated, err: %s", droplet.Err.Error())
 				return
 			}
@@ -60,7 +75,7 @@ func (h *Handler) Handle(ctx context.Context, conn net.Conn) {
 	}
 }
 
-func (h *Handler) handle(ctx context.Context, conn net.Conn, droplet *Droplet) error {
+func (h *Handler) handleDroplet(ctx context.Context, conn io.ReadWriter, droplet *Droplet) error {
 	if droplet.Terminated() {
 		return droplet.Err
 	}

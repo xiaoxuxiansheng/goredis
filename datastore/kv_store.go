@@ -16,14 +16,10 @@ type KVStore struct {
 
 	expireTimeWheel SortedSet
 
-	persister Persister
+	persister handler.Persister
 }
 
-func NewKVStore(persister Persister) database.DataStore {
-	if kvStore := persister.Reload(); kvStore != nil {
-		return kvStore
-	}
-
+func NewKVStore(persister handler.Persister) database.DataStore {
 	return &KVStore{
 		data:            make(map[string]interface{}),
 		expiredAt:       make(map[string]time.Time),
