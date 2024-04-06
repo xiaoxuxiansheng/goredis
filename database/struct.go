@@ -15,7 +15,8 @@ func (c CmdType) String() string {
 }
 
 const (
-	CmdTypeExpire CmdType = "expire"
+	CmdTypeExpire   CmdType = "expire"
+	CmdTypeExpireAt CmdType = "expireat"
 
 	// string
 	CmdTypeGet  CmdType = "get"
@@ -51,6 +52,7 @@ type DataStore interface {
 	GC()
 
 	Expire(args [][]byte) handler.Reply
+	ExpireAt(args [][]byte) handler.Reply
 
 	// string
 	Get(args [][]byte) handler.Reply

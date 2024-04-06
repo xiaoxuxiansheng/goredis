@@ -30,7 +30,8 @@ func NewDBExecutor(dataStore DataStore) Executor {
 		gcTicker:  time.NewTicker(time.Minute),
 	}
 	e.cmdHandlers = map[CmdType]CmdHandler{
-		CmdTypeExpire: e.dataStore.Expire,
+		CmdTypeExpire:   e.dataStore.Expire,
+		CmdTypeExpireAt: e.dataStore.ExpireAt,
 
 		// string
 		CmdTypeGet:  e.dataStore.Get,

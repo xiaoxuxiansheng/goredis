@@ -15,13 +15,20 @@ type KVStore struct {
 	expiredAt map[string]time.Time
 
 	expireTimeWheel SortedSet
+
+	persister Persister
 }
 
-func NewKVStore() database.DataStore {
+func NewKVStore(persister Persister) database.DataStore {
+	if kvStore := persister.Reload(); kvStore != nil {
+		return kvStore
+	}
+
 	return &KVStore{
 		data:            make(map[string]interface{}),
 		expiredAt:       make(map[string]time.Time),
 		expireTimeWheel: newSkiplist(),
+		persister:       persister,
 	}
 }
 
@@ -35,7 +42,28 @@ func (k *KVStore) Expire(args [][]byte) handler.Reply {
 	if ttl <= 0 {
 		return handler.NewErrReply("ERR invalid expire time")
 	}
-	k.expire(key, lib.TimeNow().Add(time.Duration(ttl)*time.Second))
+
+	expireAt := lib.TimeNow().Add(time.Duration(ttl) * time.Second)
+	_args := [][]byte{[]byte(database.CmdTypeExpireAt), []byte(key), []byte(lib.TimeSecondFormat(expireAt))}
+	return k.expireAt(_args, key, expireAt)
+}
+
+func (k *KVStore) ExpireAt(args [][]byte) handler.Reply {
+	key := string(args[0])
+	expiredAt, err := lib.ParseTimeSecondFormat(string((args[1])))
+	if err != nil {
+		return handler.NewSyntaxErrReply()
+	}
+	if expiredAt.Before(lib.TimeNow()) {
+		return handler.NewErrReply("ERR invalid expire time")
+	}
+
+	return k.expireAt(args, key, expiredAt)
+}
+
+func (k *KVStore) expireAt(args [][]byte, key string, expireAt time.Time) handler.Reply {
+	k.expire(key, expireAt)
+	k.persister.PersistCmd(args) // 持久化
 	return handler.NewOKReply()
 }
 
@@ -86,6 +114,10 @@ func (k *KVStore) Set(args [][]byte) handler.Reply {
 		case "nx":
 			insertStrategy = true
 		case "ex":
+			// 重复的 ex 指令
+			if ttlStrategy {
+				return handler.NewSyntaxErrReply()
+			}
 			if i == len(args)-1 {
 				return handler.NewSyntaxErrReply()
 			}
@@ -99,6 +131,8 @@ func (k *KVStore) Set(args [][]byte) handler.Reply {
 
 			ttlStrategy = true
 			ttlSeconds = ttl
+			// 将 args 剔除 ex 部分，进行持久化
+			args = append(args[:i], args[i+2:]...)
 			i++
 		default:
 			return handler.NewSyntaxErrReply()
@@ -107,12 +141,15 @@ func (k *KVStore) Set(args [][]byte) handler.Reply {
 
 	// 设置
 	affected := k.put(key, value, insertStrategy)
-	if affected > 0 && ttlStrategy {
-		k.expire(key, lib.TimeNow().Add(time.Duration(ttlSeconds)*time.Second))
+	if ttlStrategy {
+		expireAt := lib.TimeNow().Add(time.Duration(ttlSeconds) * time.Second)
+		_args := [][]byte{[]byte(database.CmdTypeExpireAt), []byte(key), []byte(lib.TimeSecondFormat(expireAt))}
+		_ = k.expireAt(_args, key, expireAt) // 其中会完成 ex 信息的持久化
 	}
 
 	// 过期时间处理
 	if affected > 0 {
+		k.persister.PersistCmd(args)
 		return handler.NewIntReply(affected)
 	}
 
@@ -128,6 +165,7 @@ func (k *KVStore) MSet(args [][]byte) handler.Reply {
 		_ = k.put(string(args[i]), string(args[i+1]), false)
 	}
 
+	k.persister.PersistCmd(args)
 	return handler.NewIntReply(int64(len(args) >> 1))
 }
 
@@ -148,6 +186,7 @@ func (k *KVStore) LPush(args [][]byte) handler.Reply {
 		list.LPush(args[i])
 	}
 
+	k.persister.PersistCmd(args)
 	return handler.NewIntReply(list.Len())
 }
 
@@ -183,6 +222,8 @@ func (k *KVStore) LPop(args [][]byte) handler.Reply {
 		return handler.NewNillReply()
 	}
 
+	k.persister.PersistCmd(args) // 持久化
+
 	if len(poped) == 1 {
 		return handler.NewBulkReply(poped[0])
 	}
@@ -207,6 +248,7 @@ func (k *KVStore) RPush(args [][]byte) handler.Reply {
 		list.RPush(args[i])
 	}
 
+	k.persister.PersistCmd(args) // 持久化
 	return handler.NewIntReply(list.Len())
 }
 
@@ -242,6 +284,7 @@ func (k *KVStore) RPop(args [][]byte) handler.Reply {
 		return handler.NewNillReply()
 	}
 
+	k.persister.PersistCmd(args) // 持久化
 	if len(poped) == 1 {
 		return handler.NewBulkReply(poped[0])
 	}
@@ -299,6 +342,7 @@ func (k *KVStore) SAdd(args [][]byte) handler.Reply {
 		added += set.Add(string(arg))
 	}
 
+	k.persister.PersistCmd(args) // 持久化
 	return handler.NewIntReply(added)
 }
 
@@ -332,6 +376,9 @@ func (k *KVStore) SRem(args [][]byte) handler.Reply {
 		remed += set.Rem(string(arg))
 	}
 
+	if remed > 0 {
+		k.persister.PersistCmd(args) // 持久化
+	}
 	return handler.NewIntReply(remed)
 }
 
@@ -358,6 +405,7 @@ func (k *KVStore) HSet(args [][]byte) handler.Reply {
 		hmap.Put(hkey, hvalue)
 	}
 
+	k.persister.PersistCmd(args) // 持久化
 	return handler.NewIntReply(int64((len(args) - 1) >> 1))
 }
 
@@ -393,6 +441,10 @@ func (k *KVStore) HDel(args [][]byte) handler.Reply {
 	var remed int64
 	for _, arg := range args[1:] {
 		remed += hmap.Del(string(arg))
+	}
+
+	if remed > 0 {
+		k.persister.PersistCmd(args) // 持久化
 	}
 	return handler.NewIntReply(remed)
 }
@@ -433,6 +485,7 @@ func (k *KVStore) ZAdd(args [][]byte) handler.Reply {
 		zset.Add(scores[i], members[i])
 	}
 
+	k.persister.PersistCmd(args) // 持久化
 	return handler.NewIntReply(int64(len(scores)))
 }
 
@@ -489,5 +542,8 @@ func (k *KVStore) ZRem(args [][]byte) handler.Reply {
 		remed += zset.Rem(string(arg))
 	}
 
+	if remed > 0 {
+		k.persister.PersistCmd(args) // 持久化
+	}
 	return handler.NewIntReply(remed)
 }
