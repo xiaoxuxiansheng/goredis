@@ -5,6 +5,7 @@ import (
 	"github.com/xiaoxuxiansheng/goredis/datastore"
 	"github.com/xiaoxuxiansheng/goredis/handler"
 	"github.com/xiaoxuxiansheng/goredis/log"
+	"github.com/xiaoxuxiansheng/goredis/persist"
 	"github.com/xiaoxuxiansheng/goredis/protocol"
 	"github.com/xiaoxuxiansheng/goredis/server"
 
@@ -14,11 +15,18 @@ import (
 var container = dig.New()
 
 func init() {
+	// conf
+	_ = container.Provide(SetUpConfig)
+	_ = container.Provide(PersistThinker)
+
 	// logger
 	_ = container.Provide(log.GetDefaultLogger)
 
 	// parser
 	_ = container.Provide(protocol.NewParser)
+
+	// persister
+	_ = container.Provide(persist.NewAofPersister)
 
 	// datastore
 	_ = container.Provide(datastore.NewKVStore)

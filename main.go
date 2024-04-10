@@ -8,9 +8,7 @@ func main() {
 		panic(err)
 	}
 
-	app := app.NewApplication(server, &app.Config{
-		Address: ":6379",
-	})
+	app := app.NewApplication(server, app.SetUpConfig())
 	if err := app.Run(); err != nil {
 		panic(err)
 	}

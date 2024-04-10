@@ -15,5 +15,5 @@ func NewApplication(server *server.Server, conf *Config) *Application {
 }
 
 func (a *Application) Run() error {
-	return a.server.ListenAndServe(a.conf.Address)
+	return a.server.ListenAndServe(a.conf.Address())
 }
