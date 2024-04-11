@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/xiaoxuxiansheng/goredis/handler"
+	"github.com/xiaoxuxiansheng/goredis/lib/pool"
 	"github.com/xiaoxuxiansheng/goredis/log"
 )
 
@@ -33,7 +34,10 @@ func NewParser(logger log.Logger) handler.Parser {
 
 func (p *Parser) ParseStream(reader io.Reader) <-chan *handler.Droplet {
 	ch := make(chan *handler.Droplet)
-	go p.parse(reader, ch)
+	pool.Submit(
+		func() {
+			p.parse(reader, ch)
+		})
 	return ch
 }
 

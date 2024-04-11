@@ -8,4 +8,7 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
-require go.uber.org/multierr v1.10.0 // indirect
+require (
+	github.com/panjf2000/ants v1.3.0 // indirect
+	go.uber.org/multierr v1.10.0 // indirect
+)

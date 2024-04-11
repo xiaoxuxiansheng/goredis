@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/xiaoxuxiansheng/goredis/handler"
+	"github.com/xiaoxuxiansheng/goredis/lib/pool"
 )
 
 type Thinker interface {
@@ -45,7 +46,7 @@ func NewAofPersister(thinker Thinker) (handler.Persister, error) {
 		aofFileName: aofFileName,
 		thinker:     thinker,
 	}
-	go a.run()
+	pool.Submit(a.run)
 	return &a, nil
 }
 
