@@ -23,7 +23,7 @@ func NewKVStore(persister handler.Persister) database.DataStore {
 	return &KVStore{
 		data:            make(map[string]interface{}),
 		expiredAt:       make(map[string]time.Time),
-		expireTimeWheel: newSkiplist(),
+		expireTimeWheel: newSkiplist("expireTimeWheel"),
 		persister:       persister,
 	}
 }
@@ -186,7 +186,7 @@ func (k *KVStore) LPush(cmd *database.Command) handler.Reply {
 	}
 
 	if list == nil {
-		list = newListEntity()
+		list = newListEntity(key)
 		k.putAsList(key, list)
 	}
 
@@ -249,7 +249,7 @@ func (k *KVStore) RPush(cmd *database.Command) handler.Reply {
 	}
 
 	if list == nil {
-		list = newListEntity(args[1:]...)
+		list = newListEntity(key, args[1:]...)
 		k.putAsList(key, list)
 		return handler.NewIntReply(list.Len())
 	}
@@ -346,7 +346,7 @@ func (k *KVStore) SAdd(cmd *database.Command) handler.Reply {
 	}
 
 	if set == nil {
-		set = newSetEntity()
+		set = newSetEntity(key)
 		k.putAsSet(key, set)
 	}
 
@@ -415,7 +415,7 @@ func (k *KVStore) HSet(cmd *database.Command) handler.Reply {
 	}
 
 	if hmap == nil {
-		hmap = newHashMapEntity()
+		hmap = newHashMapEntity(key)
 		k.putAsHashMap(key, hmap)
 	}
 
@@ -500,7 +500,7 @@ func (k *KVStore) ZAdd(cmd *database.Command) handler.Reply {
 	}
 
 	if zset == nil {
-		zset = newSkiplist()
+		zset = newSkiplist(key)
 		k.putAsSortedSet(key, zset)
 	}
 
@@ -571,14 +571,4 @@ func (k *KVStore) ZRem(cmd *database.Command) handler.Reply {
 		k.persister.PersistCmd(cmd.Cmd()) // 持久化
 	}
 	return handler.NewIntReply(remed)
-}
-
-func (k *KVStore) ForEach(task func(key string, value *database.DataEntity, expireAt *time.Time)) {
-	for key, data := range k.data {
-		expiredAt, ok := k.expiredAt[key]
-		if ok && expiredAt.Before(lib.TimeNow()) {
-			continue
-		}
-		task(key, database.NewDataEntity(data), &expiredAt)
-	}
 }

@@ -13,7 +13,7 @@ import (
 )
 
 func Test_skiplist_add_rem_range(t *testing.T) {
-	skiplist := newSkiplist()
+	skiplist := newSkiplist("")
 	// 添加 1000 条指令
 	for i := 0; i < 1000; i++ {
 		skiplist.Add(int64(i), fmt.Sprintf("%d_0", i))
@@ -112,7 +112,7 @@ func Test_skiplist_add_rem_range(t *testing.T) {
 }
 
 func Test_skiplist_upsert_member_with_dif_score(t *testing.T) {
-	skiplist := newSkiplist()
+	skiplist := newSkiplist("")
 	rander := rand.New(rand.NewSource(lib.TimeNow().UnixNano()))
 	scoreToMembers := make(map[int64][]string)
 	memberSet := make(map[string]struct{})

@@ -57,10 +57,8 @@ func (a *aofPersister) doRewrite(tmpFile *os.File) error {
 	}
 
 	// 将 db 数据转为 aof cmd
-	forkedDB.ForEach(func(key string, data *database.DataEntity, expireAt *time.Time) {
-		if cmd := data.ToCmd(); cmd != nil {
-			_, _ = tmpFile.Write(handler.NewMultiBulkReply(cmd).ToBytes())
-		}
+	forkedDB.ForEach(func(key string, adapter database.CmdAdapter, expireAt *time.Time) {
+		_, _ = tmpFile.Write(handler.NewMultiBulkReply(adapter.ToCmd()).ToBytes())
 
 		if expireAt == nil {
 			return

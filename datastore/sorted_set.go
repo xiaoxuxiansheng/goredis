@@ -3,7 +3,9 @@ package datastore
 import (
 	"math"
 	"math/rand"
+	"strconv"
 
+	"github.com/xiaoxuxiansheng/goredis/database"
 	"github.com/xiaoxuxiansheng/goredis/handler"
 	"github.com/xiaoxuxiansheng/goredis/lib"
 )
@@ -30,17 +32,20 @@ type SortedSet interface {
 	Add(score int64, member string)
 	Rem(member string) int64
 	Range(score1, score2 int64) []string
+	database.CmdAdapter
 }
 
 type skiplist struct {
+	key           string
 	scoreToNode   map[int64]*skipnode
 	memberToScore map[string]int64
 	head          *skipnode
 	rander        *rand.Rand
 }
 
-func newSkiplist() SortedSet {
+func newSkiplist(key string) SortedSet {
 	return &skiplist{
+		key:           key,
 		memberToScore: make(map[string]int64),
 		scoreToNode:   make(map[int64]*skipnode),
 		head:          newSkipnode(0, 0),
@@ -161,6 +166,16 @@ func (s *skiplist) rem(score int64, member string) {
 		move.nexts[i] = move.nexts[i].nexts[i]
 		remed.nexts[i] = nil
 	}
+}
+
+func (s *skiplist) ToCmd() [][]byte {
+	args := make([][]byte, 0, 2+2*len(s.memberToScore))
+	args = append(args, []byte(database.CmdTypeZAdd), []byte(s.key))
+	for member, score := range s.memberToScore {
+		scoreStr := strconv.FormatInt(score, 10)
+		args = append(args, []byte(scoreStr), []byte(member))
+	}
+	return args
 }
 
 type skipnode struct {

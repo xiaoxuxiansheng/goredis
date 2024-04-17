@@ -1,6 +1,9 @@
 package datastore
 
-import "github.com/xiaoxuxiansheng/goredis/handler"
+import (
+	"github.com/xiaoxuxiansheng/goredis/database"
+	"github.com/xiaoxuxiansheng/goredis/handler"
+)
 
 func (k *KVStore) getAsList(key string) (List, error) {
 	v, ok := k.data[key]
@@ -27,14 +30,17 @@ type List interface {
 	RPop(cnt int64) [][]byte
 	Len() int64
 	Range(start, stop int64) [][]byte
+	database.CmdAdapter
 }
 
 type listEntity struct {
+	key  string
 	data [][]byte
 }
 
-func newListEntity(elements ...[]byte) List {
+func newListEntity(key string, elements ...[]byte) List {
 	return &listEntity{
+		key:  key,
 		data: elements,
 	}
 }
@@ -85,4 +91,11 @@ func (l *listEntity) Range(start, stop int64) [][]byte {
 	}
 
 	return l.data[start : stop+1]
+}
+
+func (l *listEntity) ToCmd() [][]byte {
+	args := make([][]byte, 0, 2+l.Len())
+	args = append(args, []byte(database.CmdTypeRPush), []byte(l.key))
+	args = append(args, l.data...)
+	return args
 }

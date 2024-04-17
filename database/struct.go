@@ -52,20 +52,12 @@ const (
 	CmdTypeZRem          CmdType = "zrem"
 )
 
-type DataEntity struct {
-	data interface{}
-}
-
-func NewDataEntity(data interface{}) *DataEntity {
-	return &DataEntity{data: data}
-}
-
-func (d *DataEntity) ToCmd() [][]byte {
-	return nil
+type CmdAdapter interface {
+	ToCmd() [][]byte
 }
 
 type DataStore interface {
-	ForEach(task func(key string, value *DataEntity, expireAt *time.Time))
+	ForEach(task func(key string, adapter CmdAdapter, expireAt *time.Time))
 
 	ExpirePreprocess(key string)
 	GC()
@@ -108,6 +100,13 @@ type Command struct {
 	cmd      CmdType
 	args     [][]byte
 	receiver CmdReceiver
+}
+
+func NewCommand(cmd CmdType, args [][]byte) *Command {
+	return &Command{
+		cmd:  cmd,
+		args: args,
+	}
 }
 
 func (c *Command) Receiver() CmdReceiver {
