@@ -5,33 +5,39 @@ import (
 	"io"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/xiaoxuxiansheng/goredis/handler"
 	"github.com/xiaoxuxiansheng/goredis/lib/pool"
 )
 
-type Thinker interface {
-	AppendOnly() bool
-	AppendFileName() string
-	AppendFsync() string
+// always | everysec | no
+type appendSyncStrategy string
+
+func (a appendSyncStrategy) string() string {
+	return string(a)
 }
+
+const (
+	alwaysAppendSyncStrategy   appendSyncStrategy = "always"
+	everysecAppendSyncStrategy appendSyncStrategy = "everysec"
+	noAppendSyncStrategy       appendSyncStrategy = "no"
+)
 
 type aofPersister struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	entrance chan [][]byte
-
-	thinker     Thinker
+	buffer      chan [][]byte
 	aofFile     *os.File
 	aofFileName string
+	appendFsync appendSyncStrategy
 
-	mu sync.Mutex
-
+	mu   sync.Mutex
 	once sync.Once
 }
 
-func NewAofPersister(thinker Thinker) (handler.Persister, error) {
+func newAofPersister(thinker Thinker) (handler.Persister, error) {
 	aofFileName := thinker.AppendFileName()
 	aofFile, err := os.OpenFile(aofFileName, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {
@@ -41,11 +47,19 @@ func NewAofPersister(thinker Thinker) (handler.Persister, error) {
 	a := aofPersister{
 		ctx:         ctx,
 		cancel:      cancel,
-		entrance:    make(chan [][]byte),
+		buffer:      make(chan [][]byte, 1<<10),
 		aofFile:     aofFile,
 		aofFileName: aofFileName,
-		thinker:     thinker,
 	}
+	switch thinker.AppendFsync() {
+	case alwaysAppendSyncStrategy.string():
+		a.appendFsync = alwaysAppendSyncStrategy
+	case everysecAppendSyncStrategy.string():
+		a.appendFsync = everysecAppendSyncStrategy
+	default:
+		a.appendFsync = noAppendSyncStrategy // 默认策略
+	}
+
 	pool.Submit(a.run)
 	return &a, nil
 }
@@ -59,7 +73,7 @@ func (a *aofPersister) Reloader() (io.ReadCloser, error) {
 }
 
 func (a *aofPersister) PersistCmd(cmd [][]byte) {
-	a.entrance <- cmd
+	a.buffer <- cmd
 }
 
 func (a *aofPersister) Close() {
@@ -69,78 +83,33 @@ func (a *aofPersister) Close() {
 	})
 }
 
-// 重写 aof 文件
-func (a *aofPersister) RewriteAOF() error {
-	tmpFile, fileSize, err := a.startRewrite()
-	if err != nil {
-		return err
-	}
-
-	if err = a.doRewrite(tmpFile, fileSize); err != nil {
-		return err
-	}
-
-	a.endRewrite(tmpFile, fileSize)
-	// 1 加锁，短暂暂停 aof 文件写入
-
-	// 2 记录此时 aof 文件的大小， fileSize
-
-	// 3 创建一个临时的 tmp aof 文件，用于进行重写
-
-	// 4 解锁， aof 文件恢复写入
-
-	// 5 读取 fileSize 前的内容，加载到内存副本
-
-	// 6 将内存副本中的内容持久化到 tmp aof 文件中
-
-	// 7 加锁，短暂暂停 aof 文件写入
-
-	// 8 将 aof fileSize 后面的内容拷贝到 tmp aof
-
-	// 9 使用 tmp aof 代替 aof
-
-	// 10 解锁
-	return nil
-}
-
-func (a *aofPersister) startRewrite() (*os.File, int64, error) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-
-	if err := a.aofFile.Sync(); err != nil {
-		return nil, 0, err
-	}
-
-	fileInfo, _ := os.Stat(a.aofFileName)
-	fileSize := fileInfo.Size()
-
-	// 创建一个临时的 aof 文件
-	tmpFile, err := os.CreateTemp("./", "*.aof")
-	if err != nil {
-		return nil, 0, err
-	}
-
-	return tmpFile, fileSize, nil
-}
-
-func (a *aofPersister) doRewrite(tmpFile *os.File, fileSize int64) error {
-	return nil
-}
-
-func (a *aofPersister) endRewrite(tmpFile *os.File, fileSize int64) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	// 以新易旧
-}
-
 func (a *aofPersister) run() {
+	if a.appendFsync == everysecAppendSyncStrategy {
+		pool.Submit(a.fsyncEverySecond)
+	}
+
 	for {
 		select {
 		case <-a.ctx.Done():
 			// log
 			return
-		case cmd := <-a.entrance:
+		case cmd := <-a.buffer:
 			a.writeAof(cmd)
+		}
+	}
+}
+
+func (a *aofPersister) fsyncEverySecond() {
+	ticker := time.NewTicker(time.Second)
+	for {
+		select {
+		case <-a.ctx.Done():
+			// log
+			return
+		case <-ticker.C:
+			if err := a.fsync(); err != nil {
+				// log
+			}
 		}
 	}
 }
@@ -152,7 +121,24 @@ func (a *aofPersister) writeAof(cmd [][]byte) {
 	persistCmd := handler.NewMultiBulkReply(cmd)
 	if _, err := a.aofFile.Write(persistCmd.ToBytes()); err != nil {
 		// log
+		return
 	}
 
-	_ = a.aofFile.Sync()
+	if a.appendFsync != alwaysAppendSyncStrategy {
+		return
+	}
+
+	if err := a.fsyncLocked(); err != nil {
+		// log
+	}
+}
+
+func (a *aofPersister) fsync() error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.fsyncLocked()
+}
+
+func (a *aofPersister) fsyncLocked() error {
+	return a.aofFile.Sync()
 }

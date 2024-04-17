@@ -3,7 +3,6 @@ package database
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/xiaoxuxiansheng/goredis/handler"
@@ -91,15 +90,14 @@ func (e *DBExecutor) run() {
 			e.dataStore.GC()
 
 		case cmd := <-e.ch:
-			cmdKey := CmdType(strings.ToLower(cmd.cmd.String()))
-			cmdFunc, ok := e.cmdHandlers[cmdKey]
+			cmdFunc, ok := e.cmdHandlers[cmd.cmd]
 			if !ok {
 				cmd.receiver <- handler.NewErrReply(fmt.Sprintf("unknown command '%s'", cmd.cmd))
 				continue
 			}
 
 			e.dataStore.ExpirePreprocess(string(cmd.args[0])) // 懒加载机制实现过期 key 删除
-			cmd.receiver <- cmdFunc(cmd.args)
+			cmd.receiver <- cmdFunc(cmd)
 		}
 	}
 }

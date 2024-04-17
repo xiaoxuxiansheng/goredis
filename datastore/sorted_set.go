@@ -104,7 +104,7 @@ func (s *skiplist) Range(score1, score2 int64) []string {
 	}
 
 	if score1 > score2 {
-		return nil
+		return []string{}
 	}
 
 	move := s.head
@@ -116,10 +116,10 @@ func (s *skiplist) Range(score1, score2 int64) []string {
 
 	// 来到了 level0 层，move.nexts[i] 如果存在，就是首个 >= score1 的元素
 	if len(move.nexts) == 0 || move.nexts[0] == nil {
-		return nil
+		return []string{}
 	}
 
-	var res []string
+	res := []string{}
 	for move.nexts[0] != nil && move.nexts[0].score >= score1 && move.nexts[0].score <= score2 {
 		for member := range move.nexts[0].members {
 			res = append(res, member)
@@ -146,6 +146,7 @@ func (s *skiplist) rem(score int64, member string) {
 		return
 	}
 
+	delete(s.scoreToNode, score)
 	move := s.head
 	for i := len(s.head.nexts) - 1; i >= 0; i-- {
 		for move.nexts[i] != nil && move.nexts[i].score < score {

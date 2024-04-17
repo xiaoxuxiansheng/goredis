@@ -46,15 +46,15 @@ func PersistThinker() persist.Thinker {
 	return SetUpConfig()
 }
 
-func SetUpConfig() (conf *Config) {
+func SetUpConfig() *Config {
 	confOnce.Do(func() {
 		defer func() {
 			if globalConf == nil {
-				conf = defaultConf()
+				globalConf = defaultConf()
 			}
 		}()
 
-		file, err := os.Open("../redis.conf")
+		file, err := os.Open("./redis.conf")
 		if err != nil {
 			return
 		}

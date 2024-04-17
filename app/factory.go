@@ -26,7 +26,7 @@ func init() {
 	_ = container.Provide(protocol.NewParser)
 
 	// persister
-	_ = container.Provide(persist.NewAofPersister)
+	_ = container.Provide(persist.NewPersister)
 
 	// datastore
 	_ = container.Provide(datastore.NewKVStore)
