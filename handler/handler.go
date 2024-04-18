@@ -38,7 +38,7 @@ func NewHandler(db DB, persister Persister, parser Parser, logger log.Logger) (s
 		return nil, err
 	}
 	defer reloader.Close()
-	h.handle(context.Background(), newFakeReaderWriter(reloader))
+	h.handle(SetLoadingPattern(context.Background()), newFakeReaderWriter(reloader))
 	return &h, nil
 }
 

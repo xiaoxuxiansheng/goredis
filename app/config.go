@@ -14,11 +14,12 @@ import (
 )
 
 type Config struct {
-	Bind            string `cfg:"bind"`           // ip 地址
-	Port            int    `cfg:"port"`           // 启动端口号
-	AppendOnly_     bool   `cfg:"appendonly"`     // 是否启用 aof
-	AppendFileName_ string `cfg:"appendfilename"` // aof 文件名称
-	AppendFsync_    string `cfg:"appendfsync"`    // aof 级别
+	Bind                    string `cfg:"bind"`                        // ip 地址
+	Port                    int    `cfg:"port"`                        // 启动端口号
+	AppendOnly_             bool   `cfg:"appendonly"`                  // 是否启用 aof
+	AppendFileName_         string `cfg:"appendfilename"`              // aof 文件名称
+	AppendFsync_            string `cfg:"appendfsync"`                 // aof 级别
+	AutoAofRewriteAfterCmd_ int    `cfg:"auto-aof-rewrite-after-cmds"` // 每执行多少次 aof 操作后，进行一次重写
 }
 
 func (c *Config) Address() string {
@@ -35,6 +36,10 @@ func (c *Config) AppendFileName() string {
 
 func (c *Config) AppendFsync() string {
 	return c.AppendFsync_
+}
+
+func (c *Config) AutoAofRewriteAfterCmd() int {
+	return c.AutoAofRewriteAfterCmd_
 }
 
 var (

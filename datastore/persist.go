@@ -14,6 +14,10 @@ func (k *KVStore) ForEach(f func(key string, adapter database.CmdAdapter, expire
 			continue
 		}
 		_adapter, _ := data.(database.CmdAdapter)
-		f(key, _adapter, &expiredAt)
+		if ok {
+			f(key, _adapter, &expiredAt)
+		} else {
+			f(key, _adapter, nil)
+		}
 	}
 }

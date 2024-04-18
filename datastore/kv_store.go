@@ -1,6 +1,7 @@
 package datastore
 
 import (
+	"context"
 	"strconv"
 	"strings"
 	"time"
@@ -42,7 +43,7 @@ func (k *KVStore) Expire(cmd *database.Command) handler.Reply {
 
 	expireAt := lib.TimeNow().Add(time.Duration(ttl) * time.Second)
 	_cmd := [][]byte{[]byte(database.CmdTypeExpireAt), []byte(key), []byte(lib.TimeSecondFormat(expireAt))}
-	return k.expireAt(_cmd, key, expireAt)
+	return k.expireAt(cmd.Ctx(), _cmd, key, expireAt)
 }
 
 func (k *KVStore) ExpireAt(cmd *database.Command) handler.Reply {
@@ -56,12 +57,12 @@ func (k *KVStore) ExpireAt(cmd *database.Command) handler.Reply {
 		return handler.NewErrReply("ERR invalid expire time")
 	}
 
-	return k.expireAt(cmd.Cmd(), key, expiredAt)
+	return k.expireAt(cmd.Ctx(), cmd.Cmd(), key, expiredAt)
 }
 
-func (k *KVStore) expireAt(cmd [][]byte, key string, expireAt time.Time) handler.Reply {
+func (k *KVStore) expireAt(ctx context.Context, cmd [][]byte, key string, expireAt time.Time) handler.Reply {
 	k.expire(key, expireAt)
-	k.persister.PersistCmd(cmd) // 持久化
+	k.persister.PersistCmd(ctx, cmd) // 持久化
 	return handler.NewOKReply()
 }
 
@@ -150,12 +151,12 @@ func (k *KVStore) Set(cmd *database.Command) handler.Reply {
 	if affected > 0 && ttlStrategy {
 		expireAt := lib.TimeNow().Add(time.Duration(ttlSeconds) * time.Second)
 		_cmd := [][]byte{[]byte(database.CmdTypeExpireAt), []byte(key), []byte(lib.TimeSecondFormat(expireAt))}
-		_ = k.expireAt(_cmd, key, expireAt) // 其中会完成 ex 信息的持久化
+		_ = k.expireAt(cmd.Ctx(), _cmd, key, expireAt) // 其中会完成 ex 信息的持久化
 	}
 
 	// 过期时间处理
 	if affected > 0 {
-		k.persister.PersistCmd(append([][]byte{[]byte(database.CmdTypeSet)}, args...))
+		k.persister.PersistCmd(cmd.Ctx(), append([][]byte{[]byte(database.CmdTypeSet)}, args...))
 		return handler.NewIntReply(affected)
 	}
 
@@ -172,7 +173,7 @@ func (k *KVStore) MSet(cmd *database.Command) handler.Reply {
 		_ = k.put(string(args[i]), string(args[i+1]), false)
 	}
 
-	k.persister.PersistCmd(cmd.Cmd())
+	k.persister.PersistCmd(cmd.Ctx(), cmd.Cmd())
 	return handler.NewIntReply(int64(len(args) >> 1))
 }
 
@@ -194,7 +195,7 @@ func (k *KVStore) LPush(cmd *database.Command) handler.Reply {
 		list.LPush(args[i])
 	}
 
-	k.persister.PersistCmd(cmd.Cmd())
+	k.persister.PersistCmd(cmd.Ctx(), cmd.Cmd())
 	return handler.NewIntReply(list.Len())
 }
 
@@ -231,7 +232,7 @@ func (k *KVStore) LPop(cmd *database.Command) handler.Reply {
 		return handler.NewNillReply()
 	}
 
-	k.persister.PersistCmd(cmd.Cmd()) // 持久化
+	k.persister.PersistCmd(cmd.Ctx(), cmd.Cmd()) // 持久化
 
 	if len(poped) == 1 {
 		return handler.NewBulkReply(poped[0])
@@ -258,7 +259,7 @@ func (k *KVStore) RPush(cmd *database.Command) handler.Reply {
 		list.RPush(args[i])
 	}
 
-	k.persister.PersistCmd(cmd.Cmd()) // 持久化
+	k.persister.PersistCmd(cmd.Ctx(), cmd.Cmd()) // 持久化
 	return handler.NewIntReply(list.Len())
 }
 
@@ -295,7 +296,7 @@ func (k *KVStore) RPop(cmd *database.Command) handler.Reply {
 		return handler.NewNillReply()
 	}
 
-	k.persister.PersistCmd(cmd.Cmd()) // 持久化
+	k.persister.PersistCmd(cmd.Ctx(), cmd.Cmd()) // 持久化
 	if len(poped) == 1 {
 		return handler.NewBulkReply(poped[0])
 	}
@@ -355,7 +356,7 @@ func (k *KVStore) SAdd(cmd *database.Command) handler.Reply {
 		added += set.Add(string(arg))
 	}
 
-	k.persister.PersistCmd(cmd.Cmd()) // 持久化
+	k.persister.PersistCmd(cmd.Ctx(), cmd.Cmd()) // 持久化
 	return handler.NewIntReply(added)
 }
 
@@ -396,7 +397,7 @@ func (k *KVStore) SRem(cmd *database.Command) handler.Reply {
 	}
 
 	if remed > 0 {
-		k.persister.PersistCmd(cmd.Cmd()) // 持久化
+		k.persister.PersistCmd(cmd.Ctx(), cmd.Cmd()) // 持久化
 	}
 	return handler.NewIntReply(remed)
 }
@@ -425,7 +426,7 @@ func (k *KVStore) HSet(cmd *database.Command) handler.Reply {
 		hmap.Put(hkey, hvalue)
 	}
 
-	k.persister.PersistCmd(cmd.Cmd()) // 持久化
+	k.persister.PersistCmd(cmd.Ctx(), cmd.Cmd()) // 持久化
 	return handler.NewIntReply(int64((len(args) - 1) >> 1))
 }
 
@@ -466,7 +467,7 @@ func (k *KVStore) HDel(cmd *database.Command) handler.Reply {
 	}
 
 	if remed > 0 {
-		k.persister.PersistCmd(cmd.Cmd()) // 持久化
+		k.persister.PersistCmd(cmd.Ctx(), cmd.Cmd()) // 持久化
 	}
 	return handler.NewIntReply(remed)
 }
@@ -508,7 +509,7 @@ func (k *KVStore) ZAdd(cmd *database.Command) handler.Reply {
 		zset.Add(scores[i], members[i])
 	}
 
-	k.persister.PersistCmd(cmd.Cmd()) // 持久化
+	k.persister.PersistCmd(cmd.Ctx(), cmd.Cmd()) // 持久化
 	return handler.NewIntReply(int64(len(scores)))
 }
 
@@ -568,7 +569,7 @@ func (k *KVStore) ZRem(cmd *database.Command) handler.Reply {
 	}
 
 	if remed > 0 {
-		k.persister.PersistCmd(cmd.Cmd()) // 持久化
+		k.persister.PersistCmd(cmd.Ctx(), cmd.Cmd()) // 持久化
 	}
 	return handler.NewIntReply(remed)
 }

@@ -28,6 +28,7 @@ func (d *DBTrigger) Do(ctx context.Context, cmdLine [][]byte) handler.Reply {
 	}
 
 	cmd := Command{
+		ctx:      ctx,
 		cmd:      cmdType,
 		args:     cmdLine[1:],
 		receiver: make(CmdReceiver),

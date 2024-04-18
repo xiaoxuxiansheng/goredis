@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cast"
 	"github.com/stretchr/testify/assert"
+	"github.com/xiaoxuxiansheng/goredis/database"
 	"github.com/xiaoxuxiansheng/goredis/lib"
 )
 
@@ -155,5 +156,66 @@ func Test_skiplist_upsert_member_with_dif_score(t *testing.T) {
 				}
 			}
 		}
+	})
+}
+
+func Test_skiplist_to_cmd(t *testing.T) {
+	skiplist := newSkiplist("")
+
+	rander := rand.New(rand.NewSource(lib.TimeNow().UnixNano()))
+	memberToScore := make(map[int]int, 1000)
+	// 插入1000条数据
+	for i := 0; i < 1000; i++ {
+		score := rander.Intn(1000)
+		member := rander.Intn(1000)
+		skiplist.Add(int64(score), cast.ToString(member))
+		memberToScore[member] = score
+	}
+
+	cmd := skiplist.ToCmd()
+	t.Run("length", func(t *testing.T) {
+		assert.Equal(t, 2*len(memberToScore)+2, len(cmd))
+	})
+	t.Run("command", func(t *testing.T) {
+		assert.Equal(t, database.CmdTypeZAdd, database.CmdType(cmd[0]))
+	})
+	t.Run("key", func(t *testing.T) {
+		assert.Equal(t, "", string(cmd[1]))
+	})
+
+	type scoreToMember struct {
+		score, member int
+	}
+	actual := make([]scoreToMember, 0, 1000)
+	for i := 2; i < len(cmd); i += 2 {
+		actual = append(actual, scoreToMember{
+			score:  cast.ToInt(string(cmd[i])),
+			member: cast.ToInt(string(cmd[i+1])),
+		})
+	}
+
+	sort.Slice(actual, func(i, j int) bool {
+		if actual[i].score == actual[j].score {
+			return actual[i].member < actual[j].member
+		}
+		return actual[i].score < actual[j].score
+	})
+
+	expect := make([]scoreToMember, 0, 2*len(memberToScore))
+	for member, score := range memberToScore {
+		expect = append(expect, scoreToMember{
+			score:  score,
+			member: member,
+		})
+	}
+	sort.Slice(expect, func(i, j int) bool {
+		if expect[i].score == expect[j].score {
+			return expect[i].member < expect[j].member
+		}
+		return expect[i].score < expect[j].score
+	})
+
+	t.Run("member", func(t *testing.T) {
+		assert.Equal(t, expect, actual)
 	})
 }

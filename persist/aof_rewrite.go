@@ -14,7 +14,7 @@ import (
 )
 
 // 重写 aof 文件
-func (a *aofPersister) RewriteAOF() error {
+func (a *aofPersister) rewriteAOF() error {
 	// 1 重写前处理. 需要短暂加锁
 	tmpFile, fileSize, err := a.startRewrite()
 	if err != nil {
@@ -22,7 +22,7 @@ func (a *aofPersister) RewriteAOF() error {
 	}
 
 	// 2 aof 指令重写. 与主流程并发执行
-	if err = a.doRewrite(tmpFile); err != nil {
+	if err = a.doRewrite(tmpFile, fileSize); err != nil {
 		return err
 	}
 
@@ -50,8 +50,8 @@ func (a *aofPersister) startRewrite() (*os.File, int64, error) {
 	return tmpFile, fileSize, nil
 }
 
-func (a *aofPersister) doRewrite(tmpFile *os.File) error {
-	forkedDB, err := a.forkDB(tmpFile)
+func (a *aofPersister) doRewrite(tmpFile *os.File, fileSize int64) error {
+	forkedDB, err := a.forkDB(fileSize)
 	if err != nil {
 		return err
 	}
@@ -71,14 +71,19 @@ func (a *aofPersister) doRewrite(tmpFile *os.File) error {
 	return nil
 }
 
-func (a *aofPersister) forkDB(tmpFile *os.File) (database.DataStore, error) {
+func (a *aofPersister) forkDB(fileSize int64) (database.DataStore, error) {
+	file, err := os.Open(a.aofFileName)
+	if err != nil {
+		return nil, err
+	}
+	file.Seek(0, io.SeekStart)
 	logger := log.GetDefaultLogger()
-	fakePerisister := newFakePersister(tmpFile)
-	tmpKVStore := datastore.NewKVStore(newFakePersister(tmpFile))
+	reloader := readCloserAdapter(io.LimitReader(file, fileSize), file.Close)
+	fakePerisister := newFakePersister(reloader)
+	tmpKVStore := datastore.NewKVStore(fakePerisister)
 	executor := database.NewDBExecutor(tmpKVStore)
 	trigger := database.NewDBTrigger(executor)
-	_, err := handler.NewHandler(trigger, fakePerisister, protocol.NewParser(logger), logger)
-	if err != nil {
+	if _, err = handler.NewHandler(trigger, fakePerisister, protocol.NewParser(logger), logger); err != nil {
 		return nil, err
 	}
 	return tmpKVStore, nil

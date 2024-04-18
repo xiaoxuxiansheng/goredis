@@ -1,6 +1,7 @@
 package database
 
 import (
+	"context"
 	"strings"
 	"time"
 
@@ -97,6 +98,7 @@ type DataStore interface {
 type CmdHandler func(*Command) handler.Reply
 
 type Command struct {
+	ctx      context.Context
 	cmd      CmdType
 	args     [][]byte
 	receiver CmdReceiver
@@ -107,6 +109,10 @@ func NewCommand(cmd CmdType, args [][]byte) *Command {
 		cmd:  cmd,
 		args: args,
 	}
+}
+
+func (c *Command) Ctx() context.Context {
+	return c.ctx
 }
 
 func (c *Command) Receiver() CmdReceiver {

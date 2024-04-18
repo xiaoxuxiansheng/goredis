@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/xiaoxuxiansheng/goredis/handler"
@@ -28,10 +29,12 @@ type aofPersister struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	buffer      chan [][]byte
-	aofFile     *os.File
-	aofFileName string
-	appendFsync appendSyncStrategy
+	buffer                 chan [][]byte
+	aofFile                *os.File
+	aofFileName            string
+	appendFsync            appendSyncStrategy
+	autoAofRewriteAfterCmd int64
+	aofCounter             atomic.Int64
 
 	mu   sync.Mutex
 	once sync.Once
@@ -51,6 +54,11 @@ func newAofPersister(thinker Thinker) (handler.Persister, error) {
 		aofFile:     aofFile,
 		aofFileName: aofFileName,
 	}
+
+	if autoAofRewriteAfterCmd := thinker.AutoAofRewriteAfterCmd(); autoAofRewriteAfterCmd > 1 {
+		a.autoAofRewriteAfterCmd = int64(autoAofRewriteAfterCmd)
+	}
+
 	switch thinker.AppendFsync() {
 	case alwaysAppendSyncStrategy.string():
 		a.appendFsync = alwaysAppendSyncStrategy
@@ -72,7 +80,10 @@ func (a *aofPersister) Reloader() (io.ReadCloser, error) {
 	return file, nil
 }
 
-func (a *aofPersister) PersistCmd(cmd [][]byte) {
+func (a *aofPersister) PersistCmd(ctx context.Context, cmd [][]byte) {
+	if handler.IsLoadingPattern(ctx) {
+		return
+	}
 	a.buffer <- cmd
 }
 
@@ -95,8 +106,28 @@ func (a *aofPersister) run() {
 			return
 		case cmd := <-a.buffer:
 			a.writeAof(cmd)
+			a.aofTick()
 		}
 	}
+}
+
+// 记录执行的 aof 指令次数
+func (a *aofPersister) aofTick() {
+	if a.autoAofRewriteAfterCmd <= 1 {
+		return
+	}
+
+	if ticked := a.aofCounter.Add(1); ticked < int64(a.autoAofRewriteAfterCmd) {
+		return
+	}
+
+	// 达到重写次数，扣减计数器，进行重写
+	_ = a.aofCounter.Add(-a.autoAofRewriteAfterCmd)
+	pool.Submit(func() {
+		if err := a.rewriteAOF(); err != nil {
+			// log
+		}
+	})
 }
 
 func (a *aofPersister) fsyncEverySecond() {
