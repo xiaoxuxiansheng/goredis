@@ -43,11 +43,18 @@ func init() {
 }
 
 func ConstructServer() (*server.Server, error) {
-	var s *server.Server
-	if err := container.Invoke(func(_s *server.Server) {
-		s = _s
+	var h server.Handler
+	if err := container.Invoke(func(_h server.Handler) {
+		h = _h
 	}); err != nil {
 		return nil, err
 	}
-	return s, nil
+
+	var l log.Logger
+	if err := container.Invoke(func(_l log.Logger) {
+		l = _l
+	}); err != nil {
+		return nil, err
+	}
+	return server.NewServer(h, l), nil
 }

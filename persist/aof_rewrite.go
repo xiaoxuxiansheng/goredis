@@ -83,7 +83,11 @@ func (a *aofPersister) forkDB(fileSize int64) (database.DataStore, error) {
 	tmpKVStore := datastore.NewKVStore(fakePerisister)
 	executor := database.NewDBExecutor(tmpKVStore)
 	trigger := database.NewDBTrigger(executor)
-	if _, err = handler.NewHandler(trigger, fakePerisister, protocol.NewParser(logger), logger); err != nil {
+	h, err := handler.NewHandler(trigger, fakePerisister, protocol.NewParser(logger), logger)
+	if err != nil {
+		return nil, err
+	}
+	if err = h.Start(); err != nil {
 		return nil, err
 	}
 	return tmpKVStore, nil

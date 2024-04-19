@@ -9,6 +9,8 @@ func main() {
 	}
 
 	app := app.NewApplication(server, app.SetUpConfig())
+	defer app.Stop()
+
 	if err := app.Run(); err != nil {
 		panic(err)
 	}

@@ -77,6 +77,7 @@ func (a *aofPersister) Reloader() (io.ReadCloser, error) {
 	if err != nil {
 		return nil, err
 	}
+	_, _ = file.Seek(0, io.SeekStart)
 	return file, nil
 }
 

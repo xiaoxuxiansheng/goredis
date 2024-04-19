@@ -15,6 +15,7 @@ import (
 
 // 处理器
 type Handler interface {
+	Start() error // 启动 handler
 	// 处理到来的每一笔 tcp 连接
 	Handle(ctx context.Context, conn net.Conn)
 	// 关闭处理器
@@ -22,21 +23,27 @@ type Handler interface {
 }
 
 type Server struct {
-	once    sync.Once
-	handler Handler
-	logger  log.Logger
+	runOnce  sync.Once
+	stopOnce sync.Once
+	handler  Handler
+	logger   log.Logger
+	stopc    chan struct{}
 }
 
 func NewServer(handler Handler, logger log.Logger) *Server {
 	return &Server{
 		handler: handler,
 		logger:  logger,
+		stopc:   make(chan struct{}),
 	}
 }
 
-func (s *Server) ListenAndServe(address string) error {
+func (s *Server) Serve(address string) error {
+	if err := s.handler.Start(); err != nil {
+		return err
+	}
 	var _err error
-	s.once.Do(func() {
+	s.runOnce.Do(func() {
 		// 监听进程信号
 		exitWords := []os.Signal{syscall.SIGHUP, syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT}
 
@@ -45,12 +52,17 @@ func (s *Server) ListenAndServe(address string) error {
 		closec := make(chan struct{}, 4)
 		pool.Submit(func() {
 			for {
-				signal := <-sigc
-				switch signal {
-				case exitWords[0], exitWords[1], exitWords[2], exitWords[3]:
+				select {
+				case signal := <-sigc:
+					switch signal {
+					case exitWords[0], exitWords[1], exitWords[2], exitWords[3]:
+						closec <- struct{}{}
+						return
+					default:
+					}
+				case <-s.stopc:
 					closec <- struct{}{}
 					return
-				default:
 				}
 			}
 		})
@@ -65,6 +77,12 @@ func (s *Server) ListenAndServe(address string) error {
 	})
 
 	return _err
+}
+
+func (s *Server) Stop() {
+	s.stopOnce.Do(func() {
+		close(s.stopc)
+	})
 }
 
 func (s *Server) listenAndServe(listener net.Listener, closec chan struct{}) {
