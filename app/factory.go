@@ -15,30 +15,38 @@ import (
 var container = dig.New()
 
 func init() {
-	// conf
+	/**
+	   其它
+	**/
+	// 配置加载 conf
 	_ = container.Provide(SetUpConfig)
 	_ = container.Provide(PersistThinker)
-
-	// logger
+	// 日志打印 logger
 	_ = container.Provide(log.GetDefaultLogger)
 
-	// parser
-	_ = container.Provide(protocol.NewParser)
-
-	// persister
+	/**
+	   存储引擎
+	**/
+	// 数据持久化
 	_ = container.Provide(persist.NewPersister)
-
-	// datastore
+	// 存储介质
 	_ = container.Provide(datastore.NewKVStore)
-
-	// database
+	// 执行器
 	_ = container.Provide(database.NewDBExecutor)
+	// 触发器
 	_ = container.Provide(database.NewDBTrigger)
 
-	// handler
+	/**
+	   逻辑处理层
+	**/
+	// 协议解析
+	_ = container.Provide(protocol.NewParser)
+	// 指令处理
 	_ = container.Provide(handler.NewHandler)
 
-	// server
+	/**
+	   服务端
+	**/
 	_ = container.Provide(server.NewServer)
 }
 
