@@ -29,7 +29,7 @@
 <a href="">基于go实现redis之数据持久化(待补充链接)：</a> <br/><br/>
 
 ## 💻 核心架构
-<img src="https://github.com/xiaoxuxiansheng/goredis/blob/main/img/logic.png" />
 <b>服务端与指令分发层</b>
-<img src="https://github.com/xiaoxuxiansheng/goredis/blob/main/img/database.png" />
+<img src="https://github.com/xiaoxuxiansheng/goredis/blob/main/img/logic.png" />
 <b>数据存储引擎层</b>
+<img src="https://github.com/xiaoxuxiansheng/goredis/blob/main/img/database.png" />
