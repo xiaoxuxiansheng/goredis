@@ -23,8 +23,8 @@
     - appendonlyfile落盘与重写
 
 ## 💡 `goredis` 技术原理及源码实现
-<a href="">基于go实现redis之主干框架(待补充链接)：</a> <br/><br/>
-<a href="">基于go实现redis之指令分发(待补充链接)：</a> <br/><br/>
+<a href="https://mp.weixin.qq.com/s?__biz=MzkxMjQzMjA0OQ==&mid=2247485070&idx=1&sn=e6fc425dee04746648dfb0bc4c3b2313">基于go实现redis之主干框架：</a> <br/><br/>
+<a href="https://mp.weixin.qq.com/s?__biz=MzkxMjQzMjA0OQ==&mid=2247485081&idx=1&sn=68319157e3e6cd3133738ceda4e41872">基于go实现redis之指令分发：</a> <br/><br/>
 <a href="">基于go实现redis之存储引擎(待补充链接)：</a> <br/><br/>
 <a href="">基于go实现redis之数据持久化(待补充链接)：</a> <br/><br/>
 
