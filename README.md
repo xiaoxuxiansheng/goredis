@@ -25,8 +25,8 @@
 ## 💡 `goredis` 技术原理及源码实现
 <a href="https://mp.weixin.qq.com/s?__biz=MzkxMjQzMjA0OQ==&mid=2247485070&idx=1&sn=e6fc425dee04746648dfb0bc4c3b2313">基于go实现redis之主干框架</a> <br/><br/>
 <a href="https://mp.weixin.qq.com/s?__biz=MzkxMjQzMjA0OQ==&mid=2247485081&idx=1&sn=68319157e3e6cd3133738ceda4e41872">基于go实现redis之指令分发</a> <br/><br/>
-<a href="">基于go实现redis之存储引擎(待补充链接)：</a> <br/><br/>
-<a href="">基于go实现redis之数据持久化(待补充链接)：</a> <br/><br/>
+<a href="https://mp.weixin.qq.com/s?__biz=MzkxMjQzMjA0OQ==&mid=2247485098&idx=1&sn=72a09e4d91fa3c5937cd56086ba7a80a">基于go实现redis之存储引擎</a> <br/><br/>
+<a href="https://mp.weixin.qq.com/s?__biz=MzkxMjQzMjA0OQ==&mid=2247485113&idx=1&sn=4a7945138c43c6ec41a2f933e61642c8">基于go实现redis之数据持久化</a> <br/><br/>
 
 ## 💻 核心架构
 <b>服务端与指令分发层</b>
